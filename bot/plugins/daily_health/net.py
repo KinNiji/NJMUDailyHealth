@@ -1,7 +1,9 @@
 import os
 import platform
 import time
-
+import json
+import asyncio
+from loguru import logger
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
@@ -9,16 +11,16 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
-import json
 
-with open('config.json', 'r', encoding='utf-8') as f:
-    config = json.load(f)
+
+class DailyHealthException(Exception):
+    pass
 
 
 class Core:
-    def __init__(self):
+    def __init__(self, user_id, password, form_content):
         sysstr = platform.system()
-        driver_path = os.getcwd() + '/lib/'
+        driver_path = os.getcwd() + '/plugins/daily_health/lib/'
         if sysstr == 'Windows':
             driver_path = driver_path + 'chromedriver.exe'
         elif sysstr == 'Linux':
@@ -27,7 +29,7 @@ class Core:
             driver_path = driver_path + 'chromedriver_mac64'
         service = Service(driver_path)
         options = Options()
-        # options.add_argument('--headless')
+        options.add_argument('--headless')
         options.add_argument('--disable-gpu')
 
         self.driver = webdriver.Chrome(service=service, options=options)
@@ -35,32 +37,36 @@ class Core:
         self.url = {
             'e-hall': 'http://ehall.njmu.edu.cn/new/index.html'
         }
+        self.user_id = user_id
+        self.password = password
+        self.form_content = form_content
 
-    def quit(self):
+    async def quit(self):
         self.driver.quit()
 
-    def close(self):
+    async def close(self):
         self.driver.close()
 
-    def switch_window(self, title):
+    async def switch_window(self, title):
+        time.sleep(1)
         for handle in self.driver.window_handles:
             self.driver.switch_to.window(handle)
             if title in self.driver.title:
                 return
-        raise Exception(f'window not found: {title}')
+        raise DailyHealthException(f'window not found: {title}')
 
-    def web_actions(self):
+    async def web_actions(self):
         self.driver.maximize_window()
 
         # 登录
         self.driver.get(self.url['e-hall'])
         self.driver.find_element(By.CSS_SELECTOR, '#ampHasNoLogin > span.amp-no-login-en').click()
-        self.driver.find_element(By.CSS_SELECTOR, '#username').send_keys(config['userId'])
-        self.driver.find_element(By.CSS_SELECTOR, '#password').send_keys(config['password'])
+        self.driver.find_element(By.CSS_SELECTOR, '#username').send_keys(self.user_id)
+        self.driver.find_element(By.CSS_SELECTOR, '#password').send_keys(self.password)
         self.driver.find_element(By.CSS_SELECTOR, '#casLoginForm > p:nth-child(5) > button').click()
 
         # e-hall
-        self.switch_window('南京医科大学网上办事服务大厅')
+        await self.switch_window('南京医科大学网上办事服务大厅')
         favourite = WebDriverWait(self.driver, 5).until(EC.element_to_be_clickable((
             By.CSS_SELECTOR, '#ampPersonalAsideLeftMini > div > div:nth-child(1)')))
         favourite.click()
@@ -74,17 +80,17 @@ class Core:
         app_entry_button.click()
 
         # 打卡
-        self.switch_window('健康信息每日打卡')
+        await self.switch_window('健康信息每日打卡')
         add = WebDriverWait(self.driver, 5).until(EC.element_to_be_clickable((
             By.CSS_SELECTOR, 'body > main > article > section > div.bh-mb-16 > div.bh-btn.bh-btn-primary')))
         add.click()
 
         try:
-            prompt = WebDriverWait(self.driver, 5).until(EC.element_to_be_clickable((
+            prompt = self.driver.find_element(
                 By.CSS_SELECTOR, 'div.bh-modal > div.bh-pop.bh-card.bh-card-lv4.bh-dialog-con > div.bh-dialog-center'
-                                 ' > div.bh-dialog-content > div')))
-            self.quit()
-            exit(prompt.text)
+                                 ' > div.bh-dialog-content > div')
+            logger.warning(prompt.text)
+            return prompt.text
         except TimeoutException:
             commitment_button = WebDriverWait(self.driver, 5).until(EC.element_to_be_clickable((
                 By.CSS_SELECTOR, '#buttons > button.bh-btn.bh-btn-primary.bh-pull-right')))
@@ -93,8 +99,8 @@ class Core:
             form_list = self.driver.find_elements(
                 By.CSS_SELECTOR, '#emapForm > div > div:nth-child(3) > div.bh-form-block.bh-mb-36'
                                  ' > div.form-validate-block')
-            for label, info in config['form_content'].items():
-                self.form_select_process(form_list, label, info)
+            for label, info in self.form_content.items():
+                await self.form_select_process(form_list, label, info)
 
             save = WebDriverWait(self.driver, 5).until(EC.element_to_be_clickable((
                 By.CSS_SELECTOR, '#save')))
@@ -105,8 +111,10 @@ class Core:
                                  ' > div.bh-dialog-btnContainerBox'
                                  ' > a.bh-dialog-btn.bh-bg-primary.bh-color-primary-5')))
             confirm.click()
+            logger.warning('打卡成功！')
+            return '打卡成功！'
 
-    def form_select_process(self, form_list, label, info):
+    async def form_select_process(self, form_list, label, info):
         default = bool(info['default'])
         option = info['option']
         form_item = None
@@ -116,7 +124,7 @@ class Core:
                 if the_label.text == label:
                     form_item = the_form_item
             if form_item is None:
-                raise Exception(f'label not found: {label}')
+                raise DailyHealthException(f'label not found: {label}')
             else:
                 select = form_item.find_element(
                     By.CSS_SELECTOR, 'div.bh-form-group.bh-required > div.bh-ph-8.bh-form-readonly-input'
@@ -136,11 +144,11 @@ class Core:
                     time.sleep(1)
                     select_option = WebDriverWait(select_dropdown, 5).until(EC.element_to_be_clickable((
                         By.CSS_SELECTOR, 'span.jqx-listitem-state-normal.jqx-item.jqx-rc-all')))
-                    print(f'success: {label} -> {select_option.text}')
+                    logger.warning(f'success: {label} -> {select_option.text}')
                     if select_option.text == option:
                         select_option.click()
                     else:
-                        raise Exception(f'option not found: {label} -> {option}')
+                        raise DailyHealthException(f'option not found: {label} -> {option}')
                 elif type(option) is list:
                     for opt in option:
                         select_filter.clear()
@@ -148,21 +156,24 @@ class Core:
                         time.sleep(1)
                         select_option = WebDriverWait(select_dropdown, 5).until(EC.element_to_be_clickable((
                             By.CSS_SELECTOR, 'span.jqx-listitem-state-normal.jqx-item.jqx-rc-all')))
-                        print(f'success: {label} -> {select_option.text}')
+                        logger.warning(f'success: {label} -> {select_option.text}')
                         if select_option.text == opt:
                             select_option.click()
                         else:
-                            raise Exception(f'option not found: {label} -> {option} -> {opt}')
+                            raise DailyHealthException(f'option not found: {label} -> {option} -> {opt}')
                 else:
-                    raise Exception(f'option type exception: {label} -> {option} -> {type(option)}')
+                    raise DailyHealthException(f'option type invalid: {label} -> {option} -> {type(option)}')
+
+
+class DailyHealth:
+    def __init__(self, config_path):
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+        self.user_id = config['userId']
+        self.qq_id = config['qqId']
+        self.core = Core(self.user_id, config['password'], config['form_content'])
 
 
 if __name__ == '__main__':
-    core = Core()
-    # try:
-    core.web_actions()
-    # except Exception as e:
-    #     print(type(e))
-    #     print(e)
-    #     exit(e.args)
-    # core.quit()
+    daily_health = DailyHealth('config/config.json')
+    asyncio.run(daily_health.core.web_actions())

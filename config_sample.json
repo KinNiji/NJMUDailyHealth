@@ -1,0 +1,23 @@
+{
+  "userId": "你的学号",
+  "password": "你的密码",
+  "form_content": {
+    "今日所在省份": {"default": 0, "option": "江苏省"},
+    "今日所在城市": {"default": 0, "option": "南京市"},
+    "今日所在区域": {"default": 0, "option": "江宁区"},
+    "今日所在位置": {"default": 0, "option": "江宁校区"},
+    "今日情况": {"default": 0, "option": "校内学习"},
+    "今日疫苗接种情况": {"default": 1, "option": "已完成两针接种"},
+    "今日身体状况": {"default": 0, "option": "无发热等新冠十个症状"},
+    "今日健康码": {"default": 0, "option": "绿码"},
+    "异常情况接触史（多选）": {"default": 0, "option": ["无"]},
+    "今日隔离情况": {"default": 0, "option": "未隔离"},
+    "今日滞留情况": {"default": 0, "option": "未滞留"},
+    "家庭住址（多选）": {"default": 1, "option": ["南京以外江苏省内"]},
+    "共同生活人员相关疫情防控信息": {"default": 0 , "option": "无异常信息"},
+    "当天是否住校": {"default":  0, "option": "是"},
+    "当天居住校区": {"default":  0, "option": "江宁校区学生宿舍"},
+    "当天居住地点": {"default":  0, "option": "08幢学生宿舍楼"},
+    "今日是否存在出差计划": {"default":  0, "option": "否"}
+  }
+}

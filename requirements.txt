@@ -1,3 +1,6 @@
 loguru==0.6.0
+dash==2.0.0
 nonebot==1.9.1
+dash_bootstrap_components==1.0.0
+pycryptodome==3.14.1
 selenium==4.2.0

@@ -5,18 +5,6 @@ pip install -r requirements.txt
 打开下方链接，找到您安装的Chrome对应版本的内核，下载后解压，将chromedriver.exe放到bot/plugins/daily_health/lib文件夹下
 http://chromedriver.storage.googleapis.com/index.html
 
-修改配置：将bot/plugins/daily_health/config/config_sample.json重命名为config.json
-{
-  "userId": 你的学号,
-  "password": "你的密码",
-  "qqId": 你的qq号
-  "form_content": {
-    每一个键值对应网页端填报的一个键值，如下，default为是否有默认值，option为要选的str，多选为list
-    若程序运行抛出异常，请先检查网页端填报内容是否有变动，并根据变动修改配置
-    "今日所在省份": {"default": "False", "option": "江苏省"}
-  }
-}
-
 下载go-cqhttp最新release，对应您服务器所在平台，解压后放到bot文件夹下，双击运行
 https://github.com/Mrs4s/go-cqhttp
 首次配置时选择反向 Websocket 通信，在配置文件config.yml中填写用作bot的qq号和密码，并修改反向通信服务器为本地服务器
